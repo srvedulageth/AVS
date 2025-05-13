@@ -1,0 +1,127 @@
+1. Install/Update
+   -- sudo apt update; sudo apt install nodejs; node -v; sudo apt install npm;
+   -- Install Curl: sudo apt install curl; 
+   -- curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip awscliv2.zip
+      sudo ./aws/install
+   -- Install NVM:  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
+      This command installs nvm.
+      After this run ‘source ~/.bashrc’
+      To install latest node, ‘nvm install node’
+
+2. Cognito
+   -- Create a User Pool with ‘configuration options : email’ and ‘Required attributes for sign-up: email’.
+      Create an App Client with authentication flows as
+          -- Choice-based sign-in
+          --  Username and password
+          --  Secure remote password (SRP)
+          --  Get user tokens from existing authenticated sessions
+   -- Create two roless
+          -- Cognito_MyAppIdentityPoolAuthRole
+             {
+                 "Version": "2012-10-17",
+                 "Statement": [
+                       {
+                         "Effect": "Allow",
+                         "Action": [
+                             "s3:PutObject",
+                             "s3:GetObject",
+                             "s3:ListBucket"
+                         ],
+                         "Resource": [
+                             "*"
+                         ]
+                       }
+                  ]
+             }
+
+          -- Cognito_MyAppIdentityPoolUnAuthRole
+             {
+                 "Version": "2012-10-17",
+                 "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "s3:*",
+                                "s3-object-lambda:*"
+                            ],
+                            "Resource": [
+                                "*"
+                            ]
+                        }
+                 ]
+             }
+ 
+   -- Create an Identity Pool and select the above created User Pool.
+   -- JWT (JSON Web Token) can be checked at jwt.io (Optional)
+
+3. Creates S3 Bucket and necessary bucket and CORS(Cross Origin Resource Sharing) Policies.
+   ** Note the bucket name!!! And use the correct ARN of Cognito Auth Policy below.
+
+   -- Block all public access, disable versioning, object lock 
+   -- Bucket Policy
+      {
+         "Version": "2012-10-17",
+         "Statement": [
+         {
+                  "Effect": "Allow",
+                  "Principal": "*",
+                  "Action": [
+                           "s3:PutObject",
+                           "s3:GetObject",
+                           "s3:ListBucket",
+                           "s3:DeleteObject"
+                  ],
+                  "Resource": [
+                           "arn:aws:s3:::my-saas-app-bucket",
+                           "arn:aws:s3:::my-saas-app-bucket/*",
+                           "arn:aws:s3:::my-saas-app-bucket/uploads/*"
+                  ],
+                  "Condition": {
+                           "StringEquals": {
+                           "aws:PrincipalArn": "arn:aws:iam::515966496931:role/Cognito_MyAppIdentityPoolAuthRole"
+                           }
+                  }
+          }
+          ]
+        }
+     -- CORS Policy
+        [
+           {
+              "AllowedHeaders": [
+                          "*"
+              ],
+              "AllowedMethods": [
+                          "GET",
+                          "PUT",
+                          "POST",
+                          "DELETE"
+              ],
+              "AllowedOrigins": [
+                          "*"
+              ],
+              "ExposeHeaders": []
+            }
+         ]
+
+4. Lambda
+   -- Create Lambda functions for List/Delete/getpresignedURL.
+   -- Assign MySaaSAppRole
+   -- Code
+      -- From src/s3Service/Lambda_Code, copy.
+      -- ** Make sure to change buckect name in all 3 files.  const BUCKET_NAME = "avs-saas-web-app"; // Replace with your bucket name **
+   -- To Test
+      -- In Test Tab
+      -- For Listing: Event Json = {}
+      -- For Delete: Event Json =
+         {
+            "pathParameters": {
+            "fileKey": "uploads/1710168456-example.jpg"
+            }
+         }
+
+5. API Gateway
+ 
+6. Misc
+   -- Open Port(5173) on the EC2 Instance.
+7.
