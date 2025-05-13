@@ -1,0 +1,108 @@
+import { useState, useEffect } from "react";
+import fetchWithAuth from "../api";
+
+const FileUpload = () => {
+    const [file, setFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [fileUrl, setFileUrl] = useState("");
+    const [files, setFiles] = useState([]);
+
+    useEffect(() => {
+        fetchFiles();
+    }, []);
+
+    const handleFileChange = (e) => {
+        setFile(e.target.files[0]);
+    };
+
+    const handleUpload = async () => {
+        if (!file) {
+            alert("Please select a file first!");
+            return;
+        }
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const response = await fetchWithAuth("/upload", "POST", formData);
+
+            if (response.url) {
+                setFileUrl(response.url);
+                alert("File uploaded successfully!");
+                fetchFiles(); // Refresh file list
+            } else {
+                throw new Error("Upload failed!");
+            }
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("File upload failed!");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const fetchFiles = async () => {
+        try {
+            const result = await fetchWithAuth("/files"); // Fetch files from backend
+            setFiles(result);
+        } catch (error) {
+            console.error("Error fetching files:", error);
+        }
+    };
+
+    const handleDelete = async (fileKey) => {
+        try {
+            await fetchWithAuth(`/files/${fileKey}`, "DELETE");
+            setFiles((prevFiles) => prevFiles.filter(file => file.key !== fileKey));
+            alert("File deleted successfully!");
+        } catch (error) {
+            console.error("Error deleting file:", error);
+            alert("Failed to delete file!");
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center p-4">
+            <input type="file" onChange={handleFileChange} className="mb-2" />
+            <button 
+                className="bg-blue-500 text-white p-2 rounded" 
+                onClick={handleUpload}
+                disabled={uploading}
+            >
+                {uploading ? "Uploading..." : "Upload"}
+            </button>
+
+            {fileUrl && (
+                <div className="mt-4">
+                    <p>File URL:</p>
+                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500">
+                        {fileUrl}
+                    </a>
+                </div>
+            )}
+
+            <div className="mt-4">
+                <h3>Uploaded Files:</h3>
+                <ul>
+                    {files.map((file) => (
+                        <li key={file.key} className="flex justify-between w-80">
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500">
+                                {file.key}
+                            </a>
+                            <button 
+                                className="bg-red-500 text-white px-2 rounded"
+                                onClick={() => handleDelete(file.key)}
+                            >
+                                Delete
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+export default FileUpload;

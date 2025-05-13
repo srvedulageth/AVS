@@ -1,0 +1,98 @@
+import { useState, useEffect } from "react";
+import { getPresignedUrl, uploadFileToS3 } from "../s3Service/getPresignedUrl"; // Import services
+import fetchWithAuth from "../api"; // Keep for list and delete functions
+
+const FileUpload = () => {
+    const [file, setFile] = useState(null);
+    const [uploading, setUploading] = useState(false);
+    const [files, setFiles] = useState([]);
+
+    useEffect(() => {
+        fetchFiles();
+    }, []);
+
+    const handleFileChange = (e) => {
+        setFile(e.target.files[0]);
+    };
+
+    const handleUpload = async () => {
+        if (!file) {
+            alert("Please select a file first!");
+            return;
+        }
+
+        setUploading(true);
+
+        try {
+            // Step 1: Request pre-signed URL
+            const uploadURL = await getPresignedUrl(file);
+            if (!uploadURL) throw new Error("Could not get upload URL");
+
+            // Step 2: Upload file to S3
+            const success = await uploadFileToS3(file, uploadURL);
+            if (!success) throw new Error("S3 Upload Failed");
+
+            alert("File uploaded successfully!");
+            fetchFiles(); // Refresh file list
+        } catch (error) {
+            console.error("Upload error:", error);
+            alert("File upload failed!");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const fetchFiles = async () => {
+        try {
+            const result = await fetchWithAuth("/s3/list"); // Fetch files from backend
+            setFiles(result);
+        } catch (error) {
+            console.error("Error fetching files:", error);
+        }
+    };
+
+    const handleDelete = async (fileKey) => {
+        try {
+            await fetchWithAuth(`/s3/delete/${encodeURIComponent(fileKey)}`, "DELETE"); // Encode fileName to handle special characters
+            setFiles((prevFiles) => prevFiles.filter(file => file.fileName !== fileKey));
+            alert("File deleted successfully!");
+        } catch (error) {
+            console.error("Error deleting file:", error);
+            alert("Failed to delete file!");
+        }
+    };
+
+    return (
+        <div className="flex flex-col items-center p-4">
+            <input type="file" onChange={handleFileChange} className="mb-2" />
+            <button 
+                className="bg-blue-500 text-white p-2 rounded" 
+                onClick={handleUpload}
+                disabled={uploading}
+            >
+                {uploading ? "Uploading..." : "Upload"}
+            </button>
+
+            <div className="mt-4">
+                <h3>Uploaded Files:</h3>
+                <ul>
+                    {files.map((file) => (
+                        <li key={file.fileName} className="flex justify-between w-80">
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-blue-500">
+                                {file.fileName}
+                            </a>
+                            <button 
+                                className="bg-red-500 text-white px-2 rounded"
+                                onClick={() => handleDelete(file.fileName)}
+                            >
+                                Delete
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
+
+export default FileUpload;

@@ -1,0 +1,36 @@
+import { useEffect } from "react";
+import { fetchAuthSession } from "aws-amplify/auth";
+
+const DebugAuth = () => {
+    useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const session = await fetchAuthSession();
+                console.log("Auth Session:", session);
+
+                // Get the ID token (JWT)
+                const token = session.tokens?.idToken;
+                if (!token) throw new Error("No ID token found");
+
+                console.log("JWT Token:", token);
+
+                // Save token to a file
+                const blob = new Blob([token], { type: "text/plain" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "auth_token.txt";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error("Error fetching auth details:", error);
+            }
+        }; 
+
+        checkAuth();
+    }, []);
+
+    return null; // No UI needed, just debugging
+};
+
+export default DebugAuth;
